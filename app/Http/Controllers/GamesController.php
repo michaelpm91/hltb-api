@@ -26,16 +26,16 @@ class GamesController extends ApiController {
             $crawler = $client->request('GET', 'http://howlongtobeat.com/game.php?'.http_build_query([ //TODO: use third parameter of function
                     'id' => $id
                 ]));
-            $title = $crawler->filter('.gprofile_header')->each(function ($node) {
-                return $title = $node->text();
-            });
+            $title = trim($crawler->filter('.gprofile_header')->first()->text());
+
             if(!$title) return; //if title is blank assume the page doesn't exist
-            $title = trim(str_replace(array("\r", "\n"), '', $title[0]));
 
 
             $crawler = $client->request('GET', 'http://howlongtobeat.com/game_main.php?'.http_build_query([ //TODO: use third parameter of function
                     'id' => $id
                 ]));
+
+            $img = $crawler->filter('.gprofile_image')->first()->extract(array('src'))[0];
 
             $times = [
                 'Main Story' => $crawler->filter('.gprofile_times > li > div')->eq(0)->text(),
@@ -47,6 +47,7 @@ class GamesController extends ApiController {
             return [
                 'game' => [
                     'title' => $title,
+                    'img' => $img,
                     'times' => $times
                 ]
             ];
