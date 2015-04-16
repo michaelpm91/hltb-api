@@ -7,6 +7,7 @@
  */
 
 use Goutte\Client;
+use Cache;
 
 class GamesController extends ApiController {
 
@@ -16,10 +17,43 @@ class GamesController extends ApiController {
     }
 
     public function show($id){
-        //http://howlongtobeat.com/game_main.php?id=21262
         $client = new Client();//TODO: Turn this into a facade
-        $crawler = $client->request('GET', 'http://howlongtobeat.com/game_main.php?/' . $id);
-        dd($crawler);
+        //http://howlongtobeat.com/game_main.php?id=21262
+        //http://howlongtobeat.com/game.php?id=21262
+
+        $minutes = 10080;//1 week
+        $game = Cache::remember('game_'.$id, $minutes, function() use ($id, $client) {
+            $crawler = $client->request('GET', 'http://howlongtobeat.com/game.php?'.http_build_query([ //TODO: use third parameter of function
+                    'id' => $id
+                ]));
+            $title = $crawler->filter('.gprofile_header')->each(function ($node) {
+                return $title = $node->text();
+            });
+            if(!$title) return; //if title is blank assume the page doesn't exist
+            $title = trim(str_replace(array("\r", "\n"), '', $title[0]));
+
+
+            $crawler = $client->request('GET', 'http://howlongtobeat.com/game_main.php?'.http_build_query([ //TODO: use third parameter of function
+                    'id' => $id
+                ]));
+
+            $times = [
+                'Main Story' => $crawler->filter('.gprofile_times > li > div')->eq(0)->text(),
+                'Main Story + Extras' => $crawler->filter('.gprofile_times > li > div')->eq(1)->text(),
+                'Completionist' => $crawler->filter('.gprofile_times > li > div')->eq(2)->text(),
+                'Combined' => $crawler->filter('.gprofile_times > li > div')->eq(3)->text()
+            ];
+
+            return [
+                'game' => [
+                    'title' => $title,
+                    'times' => $times
+                ]
+            ];
+        });
+        if(!$game) return $this->respondNotFound('Game Not Found');
+
+        return $this->respond($game);
 
     }
 }

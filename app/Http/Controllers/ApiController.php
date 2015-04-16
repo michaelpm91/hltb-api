@@ -91,7 +91,6 @@ class ApiController extends Controller {
      * @return mixed
      */
     public function respond($data, $headers = []){
-        $this->monolog->addInfo('request to '. Request::path(), ['username' => $this->currentUser->username]);
         return response()->json($data, $this->getStatusCode(), $headers);
     }
 
