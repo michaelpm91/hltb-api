@@ -34,17 +34,16 @@ class GamesController extends ApiController {
         $details = [];
 
         $crawler->filter('.gamelist_list > li')->each(function ($node) use (&$details){
-            $details['img'] = $img = $node->filter('.gamelist_image.back_black.shadow_box > a > img')->extract(array('src'))[0];
-            $node->filter('.gamelist_details.shadow_box.back_white')->each(function ($sub_node) use (&$details){
-                $details['title'] = $sub_node->filter('h3 > a')->text();
-                $sub_node->filter('.back_white')->each(function ($sub_sub_node) use (&$details) {
-                    //dd($sub_sub_node->text());
-                    //$details[$sub_sub_node->eq(0)->text()] = $sub_sub_node->eq(1)->text();
-                });
+            $game['id'] = preg_replace('/\D/', '', $node->filter('.gamelist_image.back_black.shadow_box > a')->extract(array('href')))[0];
+            $game['img'] = $img = $node->filter('.gamelist_image.back_black.shadow_box > a > img')->extract(array('src'))[0];
+            $game['title'] = $node->filter('.gamelist_details.shadow_box.back_white h3 > a')->text();
+            $game['times'] = [];
+            $node->filter('.gamelist_details.shadow_box.back_white > div')->children()->each(function ($sub_node) use (&$game){
+                $game['times'][$sub_node->children()->eq(0)->text()] = $sub_node->children()->eq(1)->text();
             });
+            $details[] = $game;
         });
-        dd($details);
-        //return $count;
+        return $details;
 
 
     }
@@ -69,15 +68,12 @@ class GamesController extends ApiController {
             ]));
 
             $img = $crawler->filter('.gprofile_image')->first()->extract(array('src'))[0];
+            $times = [];
+            $crawler->filter('.gprofile_times > li')->each(function ($node) use (&$times){
+                $times[$node->filter('h5')->text()] = $node->filter('div')->text();
+            });
 
-            $times = [
-                'Main Story' => $crawler->filter('.gprofile_times > li > div')->eq(0)->text(),
-                'Main Story + Extras' => $crawler->filter('.gprofile_times > li > div')->eq(1)->text(),
-                'Completionist' => $crawler->filter('.gprofile_times > li > div')->eq(2)->text(),
-                'Combined' => $crawler->filter('.gprofile_times > li > div')->eq(3)->text()
-            ];
-
-            return [
+            return $game =  [
                 'game' => [
                     'title' => $title,
                     'img' => $img,
