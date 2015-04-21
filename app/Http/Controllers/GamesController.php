@@ -24,33 +24,38 @@ class GamesController extends ApiController {
         $platform = Request::input('plat');
         $detail = Request::input('detail');
 
-        $crawler = $client->request('POST', 'http://howlongtobeat.com/search_main.php?'.http_build_query([ //TODO: use third parameter of function
-            'page' => $page
-        ]), [
-            'queryString' => $query,
-            //'t' => '',
-            'sorthead' => $sort_by,
-            'sortd' => $order,
-            'plat' => $platform,
-            'detail' => ''
-        ]);
+        $minutes = 10080;//1 week
+        $cache_id = 'game_search_query'.($query ? '_'.$query : '').($sort_by ? '_'.$sort_by : '').($order ? '_'.$order : '').($platform ? '_'.$platform : '').($detail ? '_'.$detail : '');
+        $details = Cache::remember($cache_id, $minutes, function() use ($client, $page, $query, $sort_by, $order, $platform, $detail) {
+            $crawler = $client->request('POST', 'http://howlongtobeat.com/search_main.php?' . http_build_query([ //TODO: use third parameter of function
+                    'page' => $page
+                ]), [
+                    'queryString' => $query,
+                    //'t' => '',
+                    'sorthead' => $sort_by,
+                    'sortd' => $order,
+                    'plat' => $platform,
+                    'detail' => ''
+                ]);
 
-        $count = $crawler->filter('.search_loading')->first()->text();
-        $count = preg_replace('/\D/', '', $count);
-        if(!$count) return $this->respondNotFound('No Games Found');
-        $details['results'] = $count;
-        $details['page'] = $page;
+            $count = $crawler->filter('.search_loading')->first()->text();
+            $count = preg_replace('/\D/', '', $count);
+            if (!$count) return $this->respondNotFound('No Games Found');
+            $details['results'] = $count;
+            $details['page'] = $page;
 
-        $crawler->filter('.gamelist_list > li')->each(function ($node) use (&$details){
-            $game['id'] = preg_replace('/\D/', '', $node->filter('.gamelist_image.back_black.shadow_box > a')->extract(array('href')))[0];
-            $game['img'] = $img = $node->filter('.gamelist_image.back_black.shadow_box > a > img')->extract(array('src'))[0];
-            $game['title'] = $node->filter('.gamelist_details > h3 > a')->text();
-            $game['times'] = [];
-            $node->filter('.gamelist_details > div')->children()->each(function ($sub_node) use (&$game){
-                $game['times'][$sub_node->children()->eq(0)->text()] = $sub_node->children()->eq(1)->text();
+            $crawler->filter('.gamelist_list > li')->each(function ($node) use (&$details) {
+                $game['id'] = preg_replace('/\D/', '', $node->filter('.gamelist_image.back_black.shadow_box > a')->extract(array('href')))[0];
+                $game['img'] = $img = $node->filter('.gamelist_image.back_black.shadow_box > a > img')->extract(array('src'))[0];
+                $game['title'] = $node->filter('.gamelist_details > h3 > a')->text();
+                $game['times'] = [];
+                $node->filter('.gamelist_details > div')->children()->each(function ($sub_node) use (&$game) {
+                    $game['times'][$sub_node->children()->eq(0)->text()] = $sub_node->children()->eq(1)->text();
+                });
+                //TODO: Check if extra details were request
+                $details['games'][] = $game;
             });
-            //TODO: Check if extra details were request
-            $details['games'][] = $game;
+            return $details;
         });
         return $this->respond($details);
 
@@ -61,7 +66,8 @@ class GamesController extends ApiController {
         $client = new Client();//TODO: Turn this into a facade
 
         $minutes = 10080;//1 week
-        $game = Cache::remember('game_'.$id, $minutes, function() use ($id, $client) {
+        $cache_id = 'game_'.$id;
+        $game = Cache::remember($cache_id, $minutes, function() use ($id, $client) {
             $crawler = $client->request('GET', 'http://howlongtobeat.com/game.php?'.http_build_query([ //TODO: use third parameter of function
                 'id' => $id
             ]));
